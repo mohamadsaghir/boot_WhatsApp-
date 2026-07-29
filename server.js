@@ -1,4 +1,18 @@
-const { Client, LocalAuth } = require('whatsapp-web.js');
+const isVercel = process.env.VERCEL === '1' || !!process.env.NOW_REGION;
+
+let Client = null;
+let LocalAuth = null;
+
+if (!isVercel) {
+    try {
+        const wweb = require('whatsapp-web.js');
+        Client = wweb.Client;
+        LocalAuth = wweb.LocalAuth;
+    } catch (e) {
+        console.error("Failed to load whatsapp-web.js:", e);
+    }
+}
+
 const qrcode = require('qrcode');
 const express = require('express');
 const http = require('http');
@@ -7,7 +21,6 @@ const multer = require('multer');
 const xlsx = require('xlsx');
 const fs = require('fs');
 const path = require('path');
-const isVercel = process.env.VERCEL === '1' || !!process.env.NOW_REGION;
 
 const app = express();
 const server = http.createServer(app);
