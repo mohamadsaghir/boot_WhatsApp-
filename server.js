@@ -26,64 +26,67 @@ const upload = multer({ dest: 'uploads/' });
 app.use(express.static('public'));
 app.use(express.json());
 
-// Initialize WhatsApp Client with LocalAuth to save session
-const client = new Client({
-    authStrategy: new LocalAuth(),
-    puppeteer: {
-        headless: 'new', // Use the new headless mode for better compatibility
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--disable-gpu',
-            '--disable-features=IsolateOrigins,site-per-process',
-            '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
-        ],
-        executablePath: process.platform === 'win32' 
-            ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' 
-            : undefined
-    },
-    webVersionCache: {
-        type: 'remote',
-        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
-    }
-});
-
+let client = null;
 let isReady = false;
 
-client.on('qr', (qr) => {
-    console.log('QR Code received');
-    qrcode.toDataURL(qr, (err, url) => {
-        if (err) {
-            console.error('Error generating QR code', err);
-            return;
+if (!isVercel) {
+    // Initialize WhatsApp Client with LocalAuth to save session
+    client = new Client({
+        authStrategy: new LocalAuth(),
+        puppeteer: {
+            headless: 'new', // Use the new headless mode for better compatibility
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-accelerated-2d-canvas',
+                '--no-first-run',
+                '--no-zygote',
+                '--disable-gpu',
+                '--disable-features=IsolateOrigins,site-per-process',
+                '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+            ],
+            executablePath: process.platform === 'win32' 
+                ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' 
+                : undefined
+        },
+        webVersionCache: {
+            type: 'remote',
+            remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
         }
-        io.emit('qr', url);
-        io.emit('log', 'Please scan the QR code to login.');
     });
-});
 
-client.on('ready', async () => {
-    console.log('Client is ready! Waiting 5s for session to stabilize...');
-    await sleep(5000); // Give it time to load all internal stores
-    isReady = true;
-    io.emit('ready', 'WhatsApp Client is ready!');
-    io.emit('log', 'WhatsApp Client is connected and ready to send.');
-});
+    client.on('qr', (qr) => {
+        console.log('QR Code received');
+        qrcode.toDataURL(qr, (err, url) => {
+            if (err) {
+                console.error('Error generating QR code', err);
+                return;
+            }
+            io.emit('qr', url);
+            io.emit('log', 'Please scan the QR code to login.');
+        });
+    });
 
-client.on('authenticated', () => {
-    console.log('Authenticated');
-    io.emit('log', 'Authenticated successfully.');
-    io.emit('clear_qr');
-});
+    client.on('ready', async () => {
+        console.log('Client is ready! Waiting 5s for session to stabilize...');
+        await sleep(5000); // Give it time to load all internal stores
+        isReady = true;
+        io.emit('ready', 'WhatsApp Client is ready!');
+        io.emit('log', 'WhatsApp Client is connected and ready to send.');
+    });
 
-client.on('auth_failure', msg => {
-    console.error('AUTHENTICATION FAILURE', msg);
-    io.emit('log', 'Authentication failed. Please restart.');
-});
+    client.on('authenticated', () => {
+        console.log('Authenticated');
+        io.emit('log', 'Authenticated successfully.');
+        io.emit('clear_qr');
+    });
+
+    client.on('auth_failure', msg => {
+        console.error('AUTHENTICATION FAILURE', msg);
+        io.emit('log', 'Authentication failed. Please restart.');
+    });
+}
 
 if (!isVercel) {
     console.log('Initializing WhatsApp client...');
