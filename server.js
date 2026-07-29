@@ -7,6 +7,7 @@ const multer = require('multer');
 const xlsx = require('xlsx');
 const fs = require('fs');
 const path = require('path');
+const isVercel = process.env.VERCEL === '1' || !!process.env.NOW_REGION;
 
 const app = express();
 const server = http.createServer(app);
@@ -84,13 +85,17 @@ client.on('auth_failure', msg => {
     io.emit('log', 'Authentication failed. Please restart.');
 });
 
-console.log('Initializing WhatsApp client...');
-io.emit('log', 'جاري تهيئة الواتساب... يرجى الانتظار.');
+if (!isVercel) {
+    console.log('Initializing WhatsApp client...');
+    io.emit('log', 'جاري تهيئة الواتساب... يرجى الانتظار.');
 
-client.initialize().catch(err => {
-    console.error('Failed to initialize WhatsApp client:', err);
-    io.emit('log', 'فشل في التشغيل: ' + err.message);
-});
+    client.initialize().catch(err => {
+        console.error('Failed to initialize WhatsApp client:', err);
+        io.emit('log', 'فشل في التشغيل: ' + err.message);
+    });
+} else {
+    console.log('Skipping WhatsApp initialization on Vercel environment.');
+}
 
 // Function to generate random delay within a range
 const getRandomDelay = (min = 20, max = 60) => {
@@ -275,7 +280,11 @@ app.post('/send', async (req, res) => {
     io.emit('log', '🎉 العملية انتهت بنجاح وأمان!');
 });
 
-const PORT = 3005;
-server.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-});
+if (isVercel) {
+    module.exports = app;
+} else {
+    const PORT = 3005;
+    server.listen(PORT, () => {
+        console.log(`Server running on http://localhost:${PORT}`);
+    });
+}
